@@ -1,0 +1,56 @@
+name: Build JNA PanVK Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - jna-g57-dev
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - name: Baixar projeto
+        uses: actions/checkout@v4
+
+      - name: Instalar dependências
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget python3 python3-mako \
+            python3-packaging python3-yaml meson ninja-build \
+            glslang-tools pkg-config build-essential \
+            libdrm-dev libelf-dev zlib1g-dev libexpat1-dev
+
+      - name: Instalar LLVM 20
+        run: |
+          wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+          chmod +x /tmp/llvm.sh
+          sudo /tmp/llvm.sh 20
+          sudo apt-get update
+          sudo apt-get install -y llvm-20-dev clang-20 \
+            libclang-20-dev libclc-20-dev libllvmspirvlib-20-dev
+
+      - name: Configurar Android NDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: ndk;29.0.14206865
+
+      - name: Compilar PanVK
+        env:
+          PATH: /usr/lib/llvm-20/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        run: |
+          export LLVM_CONFIG=/usr/lib/llvm-20/bin/llvm-config
+          ./build.sh "$ANDROID_HOME/ndk/29.0.14206865"
+
+      - name: Publicar ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: JNA-PANVK-G57-Android
+          path: dist/*.zip
+          if-no-files-found: error
+          retention-days: 30
